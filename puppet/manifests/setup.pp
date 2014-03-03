@@ -1,5 +1,8 @@
 
-class postgres_db {
+# Reference
+# https://github.com/puppetlabs/puppetlabs-postgresql
+
+class analytics_postgres {
 
   Exec {
     path => '/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin',
@@ -10,28 +13,36 @@ class postgres_db {
     creates => '/usr/bin/postgres',
   }
 
+  class {'postgresql::globals':
+    version => '9.3',
+    manage_package_repo => true,
+    #encoding => 'UTF8',
+  }->
+
   class { 'postgresql::server':
-    config_hash => {
-        'ip_mask_deny_postgres_user' => '0.0.0.0/32',
-        'ip_mask_allow_all_users'    => '0.0.0.0/0',
-        'listen_addresses'           => '*',
-        'postgres_password'          => 'postgres',
-        'manage_pg_hba_conf'         => true,
-      },
+    ensure => 'present',
+    ip_mask_deny_postgres_user => '0.0.0.0/32',
+    ip_mask_allow_all_users    => '0.0.0.0/0',
+    listen_addresses           => '*',
+    postgres_password          => 'postgres',
+    manage_pg_hba_conf         => true,
     require     => Exec['run-update'],
   }
 
-  postgresql::tablespace {'analytics_tablespace':
-    location => '/myspace',
-  }
+  class { 'postgresql::server::contrib': }
 
-  postgresql::db { 'postgres_db':
-    user     => 'myusername',
-    password => 'A$tup!dPa$$w0rd',
+  postgresql::server::tablespace {'analytics_tablespace':
+    location => '/myspace',
+    require => Class['postgresql::server'],
+  }->
+
+  postgresql::server::db { 'analytics_postgres':
+    user     => 'IamMe',
+    password => 'letMein',
     tablespace => 'analytics_tablespace',
   }
 
-  postgresql::pg_hba_rule {'allow local db access':
+  postgresql::server::pg_hba_rule {'allow local db access':
     type        => 'local',
     database    => 'all',
     user        => 'all',
@@ -39,6 +50,14 @@ class postgres_db {
     order       => '001',
   }
 
+  postgresql::server::pg_hba_rule {'allow local db access through md5':
+    type        => 'host',
+    database    => 'analytics_postgres',
+    user        => 'IamMe',
+    auth_method => 'md5',
+    address     => 'all',
+  }
+
 }
 
-include postgres_db
+include analytics_postgres

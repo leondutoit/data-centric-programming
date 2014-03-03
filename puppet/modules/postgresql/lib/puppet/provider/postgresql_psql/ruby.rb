@@ -2,7 +2,7 @@ Puppet::Type.type(:postgresql_psql).provide(:ruby) do
 
   def command()
     if ((! resource[:unless]) or (resource[:unless].empty?))
-      if (resource[:refreshonly])
+      if (resource.refreshonly?)
         # So, if there's no 'unless', and we're in "refreshonly" mode,
         # we need to return the target command here.  If we don't,
         # then Puppet will generate an event indicating that this
@@ -51,6 +51,10 @@ Puppet::Type.type(:postgresql_psql).provide(:ruby) do
   end
 
   def run_sql_command(sql)
+    if resource[:search_path]
+      sql = "set search_path to #{Array(resource[:search_path]).join(',')}; #{sql}"
+    end
+
     command = [resource[:psql_path]]
     command.push("-d", resource[:db]) if resource[:db]
     command.push("-t", "-c", sql)
